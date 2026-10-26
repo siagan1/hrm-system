@@ -42,6 +42,9 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# Claude Code 개인 설정 (이 PC 절대경로가 들어 있음)
+/.claude/settings.local.json
+
 # 데이터베이스 / 백업 — 실제 운영 데이터이므로 절대 커밋하지 않습니다.
 *.db
 *.db-journal

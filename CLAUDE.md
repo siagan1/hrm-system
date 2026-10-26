@@ -111,7 +111,8 @@ Server Component 안에서 `dynamic(() => import(...), { ssr: false })`를 직�
 - **스키마 변경은 반드시 마이그레이션 파일로.** 서버는 `scripts/update-server.ps1` → `prisma migrate deploy`로만 반영합니다. 마이그레이션을 만들 때 기존 데이터가 있는 테이블에 필수 컬럼을 추가하면 기본값을 주거나 데이터 이전 SQL을 같이 넣으세요 — 서버 DB는 비어 있지 않습니다.
 - **`prisma/seed.ts`는 개발 전용.** 등급 기준을 덮어쓰고 기본 계정·샘플 팀/프로젝트를 만듭니다. 서버에서 실행 금지.
 - 운영 모드(`next start`)에서 IP로 접속하려면 `.env`에 `AUTH_TRUST_HOST=true`가 필요합니다(`@auth/core`가 production에서는 host를 기본 불신).
-- 백업/복구: `npm run backup [-- 라벨]`, `npm run restore -- <파일>` (`scripts/backup-db.mjs`, `restore-db.mjs`). DB 파일을 직접 복사하지 말고 이 스크립트를 쓰세요(온라인 백업 API + 무결성 검사).
+- 백업/복구: `npm run backup [-- 라벨 | --if-changed]`, `npm run restore -- <파일>` (`scripts/backup-db.mjs`, `restore-db.mjs`). DB 파일을 직접 복사하지 말고 이 스크립트를 쓰세요(온라인 백업 API + 무결성 검사).
+- 개발 PC 훅(`.claude/settings.local.json`): SessionEnd에 자동 백업, Stop에 `scripts/hooks/check-ops-guide.mjs`가 운영 관련 파일 변경 시 `docs/운영-가이드.md` 갱신 검토를 요구합니다. 그 신호를 받으면 가이드와 이 10-1절을 실제로 검토하고, 바꿀 게 없으면 그렇다고 사용자에게 알리세요. 운영 관련 경로 목록은 그 스크립트의 `OPS_RELEVANT`.
 
 ## 11. 권한 매트릭스 요약
 

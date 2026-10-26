@@ -3,6 +3,7 @@
  *
  * 실행: npm run backup            (정기 백업)
  *       npm run backup -- 배포전   (파일명에 라벨을 붙여 남김. 라벨이 붙은 백업은 자동 삭제되지 않음)
+ *       npm run backup -- --if-changed  (마지막 백업 이후 DB가 바뀌었을 때만 백업 — 세션 종료 훅용)
  *
  * - better-sqlite3의 온라인 백업 API를 써서, 서버(next start)가 켜져 있는 상태에서도
  *   일관된 스냅샷을 만듭니다. DB 파일을 그냥 복사하면 쓰는 도중의 파일이 복사될 수 있어
@@ -16,7 +17,7 @@
  *   BACKUP_DIR       백업 저장 폴더 (기본값: DB 파일과 같은 폴더의 backups/)
  *   BACKUP_COPY_DIR  (선택) 2차 사본 폴더 — OneDrive/NAS/외장디스크 등 다른 저장소 권장
  */
-import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "node:fs"
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from "node:fs"
 import { createRequire } from "node:module"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -78,13 +79,34 @@ function applyRetention(dir, now) {
   return removed
 }
 
+/** DB(및 WAL 파일)의 마지막 수정 시각이 가장 최근 백업보다 이후인지 확인합니다. */
+function changedSinceLastBackup(dbPath, backupDir) {
+  const lastBackupMs = Math.max(
+    0,
+    ...readdirSync(backupDir)
+      .filter((name) => FILE_PATTERN.test(name))
+      .map((name) => statSync(path.join(backupDir, name)).mtimeMs)
+  )
+  const dbModifiedMs = Math.max(
+    ...[dbPath, `${dbPath}-wal`].filter((p) => existsSync(p)).map((p) => statSync(p).mtimeMs)
+  )
+  return dbModifiedMs > lastBackupMs
+}
+
 async function main() {
-  const label = process.argv[2]?.replace(/[^\p{L}\p{N}_-]/gu, "")
+  const args = process.argv.slice(2)
+  const ifChanged = args.includes("--if-changed")
+  const label = args.find((a) => !a.startsWith("--"))?.replace(/[^\p{L}\p{N}_-]/gu, "")
   const dbPath = resolveDbPath()
   if (!existsSync(dbPath)) throw new Error(`DB 파일이 없습니다: ${dbPath}`)
 
   const backupDir = path.resolve(projectRoot, process.env.BACKUP_DIR ?? path.join(path.dirname(dbPath), "backups"))
   mkdirSync(backupDir, { recursive: true })
+
+  if (ifChanged && !changedSinceLastBackup(dbPath, backupDir)) {
+    console.log("마지막 백업 이후 DB 변경이 없어 백업을 건너뜁니다.")
+    return
+  }
 
   const now = new Date()
   const fileName = `hrm-${timestamp(now)}${label ? `-${label}` : ""}.db`
